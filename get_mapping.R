@@ -20,3 +20,14 @@ write.csv(cnk_atc_mapping, "atc_cnk_mapping.csv")
 #   filter(grepl("^A10",atc)) %>% 
 #   drop_na()
 # write.csv(diabetes, "atc_cnk_mapping_diabetes_no_na.csv")
+
+# Checks 
+n_distinct(cnk_atc_mapping$atc)
+n_distinct(cnk_atc_mapping$cnk)
+
+cnk_atc_mapping <- drop_na(cnk_atc_mapping)
+test <- cnk_atc_mapping %>% 
+  group_by(cnk) %>% 
+  select(-index) %>% 
+  distinct() %>% 
+  summarise(n = n())
