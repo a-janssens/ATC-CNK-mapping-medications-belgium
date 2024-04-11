@@ -2,7 +2,8 @@ library(arrow)
 library(dplyr)
 library(tidyr)
 
-# First data extraction ---------------------------------------------------
+
+# First data extraction: ATC and CNK ---------------------------------------
 
 # Merge atc and cnk data frames, created by python script, into one final data frame,
 # i.e., the resulting mapping table.
@@ -10,7 +11,7 @@ library(tidyr)
 atc <- read_parquet("../intego_prescription_mapping/atc.parquet")
 cnk <- read_parquet("../intego_prescription_mapping/cnk.parquet")
 
-cnk_atc_mapping <- full_join(atc,cnk) %>% distinct()
+cnk_atc_mapping_all <- full_join(atc,cnk) %>% distinct()
 # write.csv(cnk_atc_mapping, "atc_cnk_mapping.csv")
 
 # # Filter diabetes medication 
@@ -27,19 +28,27 @@ cnk_atc_mapping <- full_join(atc,cnk) %>% distinct()
 n_distinct(cnk_atc_mapping$atc)
 n_distinct(cnk_atc_mapping$cnk)
 
-cnk_atc_mapping <- drop_na(cnk_atc_mapping) %>% 
+# Remove non-mapped codes 
+cnk_atc_mapping <- drop_na(cnk_atc_mapping_all) %>% 
   distinct(atc, cnk)
+
+# Check if cnk are mapped to multiple atc: 283 cnk mapped to >1 atc
 count_cnk_dup<- cnk_atc_mapping %>% 
   group_by(cnk) %>% 
-  summarise(n = n())
+  summarise(n = n()) %>% 
+  arrange(-n)
+
+# Get these cnk duplicates
 cnk_dup <- count_cnk_dup %>% filter(n >1) %>% pull(cnk)
+
+# Check to which atc codes they are mapped 
 cnk_atc_mapping_dup <- cnk_atc_mapping %>% filter(cnk %in% cnk_dup) %>% 
   arrange(cnk) %>% 
   distinct()
 
 
 
-# Second data extraction: more information --------------------------------
+# Second data extraction: ATC and CNK + more information ------------------
 
 # amp:data
 amp_data <- read_parquet("../intego_prescription_mapping/amp_data.parquet") %>% 
@@ -54,16 +63,17 @@ ampp_dmpp <- read_parquet("../intego_prescription_mapping/ampp_dmpp.parquet") %>
   distinct()
 
 # We can map CNK to ATC (and ATC to CNK) by doing a full join on ampp_data and ampp_dmpp
+# - on three variables: vmpCode (?), code (?), cti_extended (Unique identification number of each packaging form of a medicine)
 ampp <- full_join(ampp_data,ampp_dmpp, amp_data,by = c("amp_vmpCode","amp_code","cti_extended"))
 
 # Do a simular check as before 
 cnk_atc_mapping2 <- ampp %>% 
   distinct(atc,cnk) %>% 
   drop_na()
-count_cnk_dup <- cnk_atc_mapping2 %>% 
+count_cnk_dup2 <- cnk_atc_mapping2 %>% 
   group_by(cnk) %>% 
   summarise(n = n())
-cnk_dup2 <- count_cnk_dup %>% filter(n >1) %>% pull(cnk)
+cnk_dup2 <- count_cnk_dup2 %>% filter(n >1) %>% pull(cnk)
 
 cnk_atc_mapping2_dup <- cnk_atc_mapping2 %>% filter(cnk %in% cnk_dup2) %>% 
   arrange(cnk) %>% 
@@ -73,11 +83,40 @@ test2 <- cnk_atc_mapping2 %>%
   mutate(nchar = nchar(atc))
 
 all(cnk_atc_mapping2$cnk %in% cnk_atc_mapping$cnk)
+all(cnk_atc_mapping$cnk %in% cnk_atc_mapping2$cnk)
 
-# Add names to mapping tbale 
-cnk_atc_mapping2_name <- cnk_atc_mapping2 %>% 
-  left_join(ampp_data %>% distinct(atc,prescription_name_famph_nl,atc_description))
+
+# Add prescription names extracted from amp:data to the data frame
+names(ampp)
+names(amp_data)
+amp_data_names <- amp_data %>% 
+  distinct(amp_vmpCode, amp_code,official_name,prescription_name_famph_nl,prescription_name_nl) 
+  # group_by(amp_vmpCode,amp_code) %>% 
+  # nest()
+
+ampp_with_names <- ampp %>% 
+  left_join(amp_data_names, by = c("amp_vmpCode", "amp_code"), suffix = c(".ampp",".amp")) %>% 
+  distinct()
+
+# For the sole purpose of mapping cnk/atc in intego, we keep columns: 
+names(ampp_with_names)
+ampp_intego <- ampp_with_names %>% 
+  filter(!is.na(atc)&!is.na(cnk)) %>% 
+  distinct(atc,cnk,prescription_name_famph_nl.amp,prescription_name_famph_nl.ampp, official_name) %>% 
+  group_by(atc,cnk) %>% 
+  fill(prescription_name_famph_nl.ampp,prescription_name_famph_nl.amp,official_name,.direction = c("down")) %>% 
+  fill(prescription_name_famph_nl.ampp,prescription_name_famph_nl.amp,official_name,.direction = c("up")) %>% 
+  ungroup() %>% 
+  distinct()
+
+# Add variable indicating number of cnk mapped to and number of atc mapped to 
+ampp_intego <- ampp_intego %>% 
+  group_by(cnk) %>% 
+  mutate(mapped_to_n_atc = n_distinct(atc)) %>% 
+  group_by(atc) %>% 
+  mutate(mapped_to_n_cnk = n_distinct(cnk)) %>% 
+  ungroup()
 
 # Save the new cnk_atc_mapping 
-write.csv(cnk_atc_mapping2, "atc_cnk_mapping.csv")
+write.csv(ampp_intego, "../intego_prescription_mapping/atc_cnk_mapping_upgrade.csv")
 
