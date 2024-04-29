@@ -117,6 +117,26 @@ ampp_intego <- ampp_intego %>%
   mutate(mapped_to_n_cnk = n_distinct(cnk)) %>% 
   ungroup()
 
+# Include alteration of atc/ddd
+library(readxl)
+library(stringr)
+df_alterations <- read_excel("../atc_alterations.xlsx")
+df_alterations_unique <- df_alterations %>% 
+  group_by(previous_code) %>% 
+  summarise_all(~paste(.,collapse = "_")) %>% 
+  ungroup() %>% 
+  rowwise() %>% 
+  mutate(maps_to_n_alterations = str_count(new_code,"_")+1) %>% 
+  ungroup() %>% 
+  select(-substance_name)
+ampp_intego_alterations <- ampp_intego %>% 
+  left_join(df_alterations_unique, by = c("atc"="previous_code")) %>% 
+  rename(atc_from_xml = atc) %>% 
+  mutate(atc = case_when( 
+    is.na(new_code) | maps_to_n_alterations >1 ~ atc_from_xml,
+    TRUE ~new_code)) %>% 
+  select(atc_from_xml, atc, cnk, everything())
+
 # Save the new cnk_atc_mapping 
-write.csv(ampp_intego, "../intego_prescription_mapping/atc_cnk_mapping_upgrade.csv")
+write.csv(ampp_intego_alterations, "../intego_prescription_mapping/atc_cnk_mapping_upgrade.csv")
 
