@@ -25,8 +25,8 @@ cnk_atc_mapping_all <- full_join(atc,cnk) %>% distinct()
 # write.csv(diabetes, "atc_cnk_mapping_diabetes_no_na.csv")
 
 # Checks 
-n_distinct(cnk_atc_mapping$atc)
-n_distinct(cnk_atc_mapping$cnk)
+n_distinct(cnk_atc_mapping_all$atc)
+n_distinct(cnk_atc_mapping_all$cnk)
 
 # Remove non-mapped codes 
 cnk_atc_mapping <- drop_na(cnk_atc_mapping_all) %>% 
@@ -117,10 +117,12 @@ ampp_intego <- ampp_intego %>%
   mutate(mapped_to_n_cnk = n_distinct(cnk)) %>% 
   ungroup()
 
-# Include alteration of atc/ddd
+# Include alteration of atc/ddd: https://atcddd.fhi.no/atc_ddd_alterations__cumulative/atc_alterations/
 library(readxl)
 library(stringr)
 df_alterations <- read_excel("../atc_alterations.xlsx")
+
+# Get one-to-one mapping 
 df_alterations_unique <- df_alterations %>% 
   group_by(previous_code) %>% 
   summarise_all(~paste(.,collapse = "_")) %>% 
@@ -129,14 +131,42 @@ df_alterations_unique <- df_alterations %>%
   mutate(maps_to_n_alterations = str_count(new_code,"_")+1) %>% 
   ungroup() %>% 
   select(-substance_name)
+
+# Remove the one with "maps_to_n_alterations > 1"
+# - these still exist (see website ATC/DDD)
+# - All one-to-one were replaced 
+df_alterations_unique <- df_alterations_unique %>% 
+  filter(maps_to_n_alterations ==1) %>% 
+  select(-maps_to_n_alterations)
+
+write.csv(df_alterations_unique,"../intego_prescription_mapping/atc_alterations.csv", fileEncoding = "UTF-8")
+
+# Update cnk-to-atc mapping taking into account alterations
 ampp_intego_alterations <- ampp_intego %>% 
   left_join(df_alterations_unique, by = c("atc"="previous_code")) %>% 
-  rename(atc_from_xml = atc) %>% 
+  mutate(atc_previous = atc) %>% 
   mutate(atc = case_when( 
-    is.na(new_code) | maps_to_n_alterations >1 ~ atc_from_xml,
+    is.na(new_code) ~ atc_previous,
     TRUE ~new_code)) %>% 
-  select(atc_from_xml, atc, cnk, everything())
+  distinct(atc,cnk,prescription_name_famph_nl.amp) %>% group_by(cnk) %>% 
+  mutate(mapped_to_n_atc = n_distinct(atc)) %>% 
+  group_by(atc) %>% 
+  mutate(mapped_to_n_cnk = n_distinct(cnk)) %>% 
+  ungroup() 
+
+# For cnk with multiple atc codes, collapse them into one string 
+ampp_intego_alterations_collapsed <- ampp_intego_alterations %>% 
+  group_by(cnk,atc) %>%
+  summarise(name = paste0(prescription_name_famph_nl.amp,collapse="_"),
+            mapped_to_n_atc = mapped_to_n_atc[1])  %>% 
+  group_by(cnk) %>% 
+  summarise(atc = paste0(atc,collapse="_"),
+            name = paste0(name,collapse = "_"),
+            mapped_to_n_atc = mapped_to_n_atc[1]) %>% 
+  ungroup() %>% 
+  arrange(cnk)
+  
 
 # Save the new cnk_atc_mapping 
-write.csv(ampp_intego_alterations, "../intego_prescription_mapping/atc_cnk_mapping_upgrade.csv")
+write.csv(ampp_intego_alterations_collapsed, "../intego_prescription_mapping/cnk_to_atc_mapping.csv")
 
