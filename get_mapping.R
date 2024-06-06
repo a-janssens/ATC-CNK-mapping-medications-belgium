@@ -168,5 +168,5 @@ ampp_intego_alterations_collapsed <- ampp_intego_alterations %>%
   
 
 # Save the new cnk_atc_mapping 
-write.csv(ampp_intego_alterations_collapsed, "../intego_prescription_mapping/cnk_to_atc_mapping.csv")
+write.csv(ampp_intego_alterations_collapsed, "../intego_prescription_mapping/cnk_to_atc_mapping.csv", fileEncoding = "UTF-8")
 
