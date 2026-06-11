@@ -64,3 +64,23 @@ Foundational reference:
 > practice-based continuous morbidity registration project.
 > *BMC Medical Informatics and Decision Making*. 2014;14:48.
 > doi:[10.1186/1472-6947-14-48](https://doi.org/10.1186/1472-6947-14-48)
+
+## Related: vaccine data (Vaccinnet)
+
+This repo maps medications from the SAM database, which **already includes vaccines**
+(ATC group J07 — currently 216 J07 CNK codes in the mapping). The Vaccinnet source
+below is a separate, complementary vaccine reference used elsewhere in the Intego
+cleaning; it is **not** produced by the code in this repository.
+
+Vaccine codes are downloaded from the Flemish Agency for Care and Health (Zorg en
+Gezondheid), under "Codes vaccins":
+<https://www.zorg-en-gezondheid.be/per-domein/infectieziekten-en-vaccinaties/vaccinaties/vaccinnet/vaccinnet-integreren-in-uw-softwarepakket>
+
+The relevant file is the CNK–ATC vaccine code table
+(`vaccincodes_Vaccinnet_CNK_ATC_<date>.xlsx`).
+
+⚠️ Vaccinnet is migrating to "Vaccinnet 2.0" (Vitalink as authoritative source, FHIR
+standard) during 2025–2026. Existing KMEHR-based connections and the current download
+page remain available until the full rollout, but the location and format of this
+file are expected to change. See also the Vitalink technical documentation:
+<https://www.vitalink.be/gebruikers/ik-ben-softwareleverancier/technische-documentatie>
