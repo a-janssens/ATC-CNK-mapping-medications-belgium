@@ -2,64 +2,18 @@ library(arrow)
 library(dplyr)
 library(tidyr)
 
-
-# First data extraction: ATC and CNK ---------------------------------------
-
-# Merge atc and cnk data frames, created by python script, into one final data frame,
-# i.e., the resulting mapping table.
-
-atc <- read_parquet("../intego_prescription_mapping/atc.parquet")
-cnk <- read_parquet("../intego_prescription_mapping/cnk.parquet")
-
-cnk_atc_mapping_all <- full_join(atc,cnk) %>% distinct()
-# write.csv(cnk_atc_mapping, "atc_cnk_mapping.csv")
-
-# # Filter diabetes medication 
-# diabetes <- cnk_atc_mapping %>% 
-#   filter(grepl("^A10",atc))
-# write.csv(diabetes, "atc_cnk_mapping_diabetes.csv")
-# 
-# diabetes_na <- cnk_atc_mapping %>% 
-#   filter(grepl("^A10",atc)) %>% 
-#   drop_na()
-# write.csv(diabetes, "atc_cnk_mapping_diabetes_no_na.csv")
-
-# Checks 
-n_distinct(cnk_atc_mapping_all$atc)
-n_distinct(cnk_atc_mapping_all$cnk)
-
-# Remove non-mapped codes 
-cnk_atc_mapping <- drop_na(cnk_atc_mapping_all) %>% 
-  distinct(atc, cnk)
-
-# Check if cnk are mapped to multiple atc: 283 cnk mapped to >1 atc
-count_cnk_dup<- cnk_atc_mapping %>% 
-  group_by(cnk) %>% 
-  summarise(n = n()) %>% 
-  arrange(-n)
-
-# Get these cnk duplicates
-cnk_dup <- count_cnk_dup %>% filter(n >1) %>% pull(cnk)
-
-# Check to which atc codes they are mapped 
-cnk_atc_mapping_dup <- cnk_atc_mapping %>% filter(cnk %in% cnk_dup) %>% 
-  arrange(cnk) %>% 
-  distinct()
-
-
-
-# Second data extraction: ATC and CNK + more information ------------------
+# Data extraction: ATC and CNK + more information ------------------
 
 # amp:data
-amp_data <- read_parquet("../intego_prescription_mapping/amp_data.parquet") %>% 
+amp_data <- read_parquet("amp_data.parquet") %>% 
   distinct()
 
 # amp:ampp:data
-ampp_data <- read_parquet("../intego_prescription_mapping/ampp_data.parquet") %>% 
+ampp_data <- read_parquet("ampp_data.parquet") %>% 
   distinct()
 
 # amp:ampp:dmpp
-ampp_dmpp <- read_parquet("../intego_prescription_mapping/ampp_dmpp.parquet") %>% 
+ampp_dmpp <- read_parquet("ampp_dmpp.parquet") %>% 
   distinct()
 
 # We can map CNK to ATC (and ATC to CNK) by doing a full join on ampp_data and ampp_dmpp
@@ -81,10 +35,6 @@ cnk_atc_mapping2_dup <- cnk_atc_mapping2 %>% filter(cnk %in% cnk_dup2) %>%
 
 test2 <- cnk_atc_mapping2 %>% 
   mutate(nchar = nchar(atc))
-
-all(cnk_atc_mapping2$cnk %in% cnk_atc_mapping$cnk)
-all(cnk_atc_mapping$cnk %in% cnk_atc_mapping2$cnk)
-
 
 # Add prescription names extracted from amp:data to the data frame
 names(ampp)
@@ -120,7 +70,7 @@ ampp_intego <- ampp_intego %>%
 # Include alteration of atc/ddd: https://atcddd.fhi.no/atc_ddd_alterations__cumulative/atc_alterations/
 library(readxl)
 library(stringr)
-df_alterations <- read_excel("../atc_alterations.xlsx")
+df_alterations <- read_excel("atc_alterations.xlsx")
 
 # Get one-to-one mapping 
 df_alterations_unique <- df_alterations %>% 
@@ -139,7 +89,7 @@ df_alterations_unique <- df_alterations_unique %>%
   filter(maps_to_n_alterations ==1) %>% 
   select(-maps_to_n_alterations)
 
-write.csv(df_alterations_unique,"../intego_prescription_mapping/atc_alterations.csv", fileEncoding = "UTF-8")
+write.csv(df_alterations_unique,"atc_alterations.csv", fileEncoding = "UTF-8", row.names = FALSE)
 
 # Update cnk-to-atc mapping taking into account alterations
 ampp_intego_alterations <- ampp_intego %>% 
@@ -168,5 +118,12 @@ ampp_intego_alterations_collapsed <- ampp_intego_alterations %>%
   
 
 # Save the new cnk_atc_mapping 
-write.csv(ampp_intego_alterations_collapsed, "../intego_prescription_mapping/cnk_to_atc_mapping.csv", fileEncoding = "UTF-8")
+write.csv(ampp_intego_alterations_collapsed, "cnk_to_atc_mapping.csv", fileEncoding = "UTF-8", row.names = FALSE)
 
+library(arrow)  # or readr, depending on how you load
+new <- read.csv("cnk_to_atc_mapping.csv")
+old <- read.csv("/Users/u0121893/Library/CloudStorage/OneDrive-KULeuven/intego/projects/intego_ii_versioning/cleaning_info_prescriptions_and_vaccines/prescriptions/intego_prescription_mapping/cnk_to_atc_mapping.csv")
+
+nrow(old); nrow(new)
+length(setdiff(new$cnk, old$cnk))   # CNK codes new since 2024
+length(setdiff(old$cnk, new$cnk))   # CNK codes that disappeared
