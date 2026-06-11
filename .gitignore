@@ -1,0 +1,14 @@
+# Data files - too large for GitHub, obtained from SAM export
+data/
+*.parquet
+
+# Generated outputs
+*.csv
+
+# Python and R clutter
+.ipynb_checkpoints/
+.Rproj.user/
+*.Rhistory
+
+# macOS clutter
+.DS_Store
