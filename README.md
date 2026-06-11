@@ -1,6 +1,6 @@
 # ATC-CNK-mapping-medications-belgium
 
-[INTEGO](https://www.intego.be/) project: cleaning of medications data. This repo
+[Intego](https://www.intego.be/) project: cleaning of medications data. This repo
 extracts an ATC–CNK mapping table for Belgian medications from publicly maintained
 sources. It is an **intermediate step** in the wider Intego data-cleaning and
 standardization workflow.
