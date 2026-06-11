@@ -122,7 +122,7 @@ write.csv(ampp_intego_alterations_collapsed, "cnk_to_atc_mapping.csv", fileEncod
 
 library(arrow)  # or readr, depending on how you load
 new <- read.csv("cnk_to_atc_mapping.csv")
-old <- read.csv("/Users/u0121893/Library/CloudStorage/OneDrive-KULeuven/intego/projects/intego_ii_versioning/cleaning_info_prescriptions_and_vaccines/prescriptions/intego_prescription_mapping/cnk_to_atc_mapping.csv")
+old <- read.csv("cnk_to_atc_mapping_2024.csv")
 
 nrow(old); nrow(new)
 length(setdiff(new$cnk, old$cnk))   # CNK codes new since 2024
